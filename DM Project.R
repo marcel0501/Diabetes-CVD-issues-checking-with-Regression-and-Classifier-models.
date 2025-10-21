@@ -1,39 +1,18 @@
-d1 <- read.csv("https://raw.githubusercontent.com/marcel0501/Obesity-classifier-and-BMI-regression/refs/heads/main/ObesityDataSet_raw_and_data_sinthetic.csv", 
+d1 <- read.csv("https://raw.githubusercontent.com/marcel0501/Obesity-classifier-and-BMI-regression/refs/heads/main/Final_data.csv", 
                sep = ",")
 head(d1)
-sapply(d1, function(x)(sum(is.na(x)))) # No MISSING VALUES
+sapply(d1, function(x)(sum(is.na(x))))# No MISSING VALUES
 
 ######Exploratory Analysis######
+d2 <- d1[,c("Age", "Workout_Frequency..days.week.","Daily.meals.frequency","Weight..kg.","Height..m.","Gender","Session_Duration..hours.","Calories_Burned","Water_Intake..liters.","Fat_Percentage","Proteins","Carbs","Fats","diet_type","sugar_g",
+            "sodium_mg","cholesterol_mg", "lean_mass_kg","BMI")]
 
-summary(d1)
-#Plotting categorical mutables
-par(mfrow=c(3,3))
-barplot(table(d1$Gender), main="Gender")
-barplot(table(d1$family_history_with_overweight), main="Family History with Overweight")
-barplot(table(d1$FAVC), main="Frequent consumption of high caloric food FAVC")
-barplot(table(d1$CAEC), main="Consumption of food between meals CAEC")
-barplot(table(d1$SMOKE), main="Smoking")
-barplot(table(d1$SCC), main="Consumption of food while watching TV/using computer SCC")
-barplot(table(d1$CALC), main="Consumption of alcohol CALC")
-barplot(table(d1$MTRANS), main="Means of transportation MTRANS")
-barplot(table(d1$NObeyesdad), main="Obesity Type NObeyesdad")
-par(mfrow=c(1,1))
 
-#Pairs Panels on numerical variables
-library(psych)
-num_vars <- d1[, sapply(d1, is.numeric)]
-pairs.panels(num_vars,
-             method = "pearson", # correlation method
-             hist.col = "#00AFBB",
-             density = TRUE,  # show density plots
-             ellipses = TRUE # show correlation ellipses
-)
-
-#Notiamo che alcune variabili e.g. FCVC hanno valori float essendo stati imputati o creati artificialmente, arrotondiamoli all'int più vicino
-round_numeric_df <- function(df, exclude = NULL) {
+#Notiamo che alcune variabili e.g. AGE, Workout_frequency... hanno valori float essendo stati imputati o creati artificialmente, arrotondiamoli all'int più vicino
+round_numeric_df <- function(df, include = NULL) {
   df[] <- lapply(names(df), function(col_name) {
-    # Se la colonna è numerica e NON è tra quelle escluse
-    if (is.numeric(df[[col_name]]) && !(col_name %in% exclude)) {
+    # Se la colonna è numerica ed è tra quelle incluse
+    if (is.numeric(df[[col_name]]) && (col_name %in% include)) {
       return(round(df[[col_name]]))
     } else {
       return(df[[col_name]])
@@ -45,52 +24,51 @@ round_numeric_df <- function(df, exclude = NULL) {
   
   return(df)
 }
+d2 <- round_numeric_df(d2, include = c("Age", "Workout_Frequency..days.week.","Daily.meals.frequency"))
+summary(d1)
+#Pairs Panels on numerical variables
 
-d1 <- round_numeric_df(d1, exclude = c("Weight", "Height"))
+
+
+
+
 
 
 #
 #
 #
 #####Starting with Regression Analysis####
-d2<-d1
+
 
 
 #Trasformiamo le variabili categoriche in factor
-d2[] <- sapply(d1, function(x) {
+d2[] <- sapply(d2, function(x) {
   if (is.character(x)) as.factor(x) else x
 })
-#Aggiungiamo BMI su cui fare regressione
-d2$BMI <- d2$Weight / (d2$Height)^2
-
-#Inveritamo i valori della variabile CALC, CAEC
-d2$CALC <- max(d2$CALC) - d2$CALC
-d2$CAEC <- max(d2$CAEC) - d2$CAEC
-
-summary(d2)
 
 #Check colinearity
 #vettore delle colonne
 
-d2.list <- d2
 
-fit <- lm(BMI ~ Gender+Age+family_history_with_overweight+FAVC+FCVC+NCP+CAEC+SMOKE+CH2O+SCC+FAF+TUE+CALC+MTRANS+NObeyesdad, data = d2)
+fit <- lm(Calories_Burned ~ ., data = d2)
 summary(fit)
 
 cov=attr(terms(fit), "term.labels") 
 
 library(dplyr)
-d2_numeric <- d2[,cov]%>% dplyr::select_if(is.numeric)
-colnames(d2_numeric)
+exclude <- c("Fats","Carbs","Weight..kg.","cholesterol_mg","BMI")
 
-require(corrgram)
-corrgram(d2_numeric, lower.panel = panel.cor, cex=1, cex.labels = 1)
+d2_numeric <- d2 |>
+  dplyr::select(dplyr::all_of(cov)) |>
+  dplyr::select(!dplyr::any_of(exclude)) |>
+  dplyr::select(dplyr::where(is.numeric))
+
+
 
 #Tol e VIF
-y = as.numeric(d2$BMI)
-X<-d2_numeric
+y = as.numeric(d2$Calories_Burned)
+X<-d2_numeric 
 X=as.matrix(X)
-
 
 library(mctest)
 # imcdiag(X,y)
@@ -98,16 +76,48 @@ library(mctest)
 m=lm(y~X)
 imcdiag(m)
 
-#No collinearity problems detected
+#collinearity problems detected, we'll proceed by taking out the variables with VIF> but max VIF>5
+
+fit1 <- lm(Calories_Burned ~ . -Fats-Carbs-Weight..kg.-cholesterol_mg-BMI, data = d2)
+summary(fit1)
+
+
 library(MASS)
-boxcoxreg1<-boxcox(fit)
+boxcoxreg1<-boxcox(fit1)
 lambda1<-boxcoxreg1$x[which(boxcoxreg1$y==max(boxcoxreg1$y))]
 lambda1
 #Lambda vicino allo 0, serve trasformare la variabile risposta
 # use log for YL
-hist(d2$BMI)
-hist(log(d2$BMI))
+hist(d2$Calories_Burned)
+hist(((d2$Calories_Burned^0.30)-1/0.30))
+hist(log(d2$Calories_Burned))
 
-fitBox <- lm(log(BMI) ~ Gender+Age+family_history_with_overweight+FAVC+FCVC+NCP+CAEC+SMOKE+CH2O+SCC+FAF+TUE+CALC+MTRANS+NObeyesdad, data = d2)
+fitBox <- lm(((Calories_Burned^0.30)-1/0.30) ~ . -Fats-Carbs-Weight..kg.-cholesterol_mg-BMI, data = d2)
 summary(fit)
 summary(fitBox)
+library(lmtest)
+resettest(fitBox, power = 2, type = "fitted",  data = d2)
+
+library(gam)
+gam1 <- gam(Calories_Burned ~ . -Fats-Carbs-Weight..kg.-cholesterol_mg-BMI-Session_Duration..hours.+s(Session_Duration..hours.)-lean_mass_kg+s(lean_mass_kg)-Fat_Percentage+s(Fat_Percentage)-Water_Intake..liters.+s(Water_Intake..liters.), data = d2)
+summary(gam1)
+plot(gam1)
+
+opar <- par(mfrow=c(3,3))
+plot(gam1, resid=T, pch=16)
+par <- opar
+par(mfrow=c(1,1))
+
+w <- exp(-fitted(fit1))
+fitBox_wls <- lm(((Calories_Burned^0.30)-1/0.30)~ . -Water_Intake..liters.+I(Water_Intake..liters.^3)-Fat_Percentage+I(Fat_Percentage^2)-lean_mass_kg+I(-lean_mass_kg^2), data=d2, weights = w)
+summary(fitBox_wls)
+
+
+summary(fit)
+plot(fitBox_wls, which=1)
+plot(fitBox_wls)
+library(lmtest) 
+bptest(fitBox_wls
+) 
+qqnorm(fitBox_wls$residuals)
+qqline(fitBox_wls$residuals)
