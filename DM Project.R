@@ -28,6 +28,9 @@ d2 <- round_numeric_df(d2, include = c("Age", "Workout_Frequency..days.week.","D
 summary(d1)
 #Pairs Panels on numerical variables
 
+d3 = d1
+d3 <- round_numeric_df(d3, include = c("Age", "Workout_Frequency..days.week.","Daily.meals.frequency","Experience_Level"))
+
 
 
 
@@ -46,28 +49,39 @@ d2[] <- sapply(d2, function(x) {
   if (is.character(x)) as.factor(x) else x
 })
 
+d3[] <- sapply(d3, function(x) {
+  if (is.character(x)) as.factor(x) else x
+})
+
 #Check colinearity
 #vettore delle colonne
 
+fit3 <- lm(Calories_Burned ~ ., data = d3)
+summary(fit3)
 
 fit <- lm(Calories_Burned ~ ., data = d2)
 summary(fit)
 
 cov=attr(terms(fit), "term.labels") 
+cov3 =attr(terms(fit3), "term.labels")
 
 library(dplyr)
 exclude <- c("Fats","Carbs","Weight..kg.","cholesterol_mg","BMI")
+exclude3 <- c("Carbs","Proteins","Fats","BMI","BMI_calc","pct_maxHR","Weight..kg.","expected_burn","pct_HRR","lean_mass_kg","Calories","protein_per_kg")
 
 d2_numeric <- d2 |>
   dplyr::select(dplyr::all_of(cov)) |>
   dplyr::select(!dplyr::any_of(exclude)) |>
   dplyr::select(dplyr::where(is.numeric))
-
+d3_numeric <- d3 |>
+  dplyr::select(dplyr::all_of(cov3)) |>
+  dplyr::select(!dplyr::any_of(exclude3)) |>
+  dplyr::select(dplyr::where(is.numeric))
 
 
 #Tol e VIF
-y = as.numeric(d2$Calories_Burned)
-X<-d2_numeric 
+y = as.numeric(d3$Calories_Burned)
+X<-d3_numeric 
 X=as.matrix(X)
 
 library(mctest)
@@ -81,25 +95,37 @@ imcdiag(m)
 fit1 <- lm(Calories_Burned ~ . -Fats-Carbs-Weight..kg.-cholesterol_mg-BMI, data = d2)
 summary(fit1)
 
+fit4 = lm(Calories_Burned~. -Carbs-Proteins-Fats-BMI-BMI_calc-pct_maxHR-Weight..kg.-expected_burn-pct_HRR-lean_mass_kg-Calories-protein_per_kg, data=d3)
+summary(fit4)
 
 library(MASS)
-boxcoxreg1<-boxcox(fit1)
+boxcoxreg1<-boxcox(fit4)
 lambda1<-boxcoxreg1$x[which(boxcoxreg1$y==max(boxcoxreg1$y))]
 lambda1
 #Lambda vicino allo 0, serve trasformare la variabile risposta
 # use log for YL
 hist(d2$Calories_Burned)
-hist(((d2$Calories_Burned^0.30)-1/0.30))
+hist(((d3$Calories_Burned^0.58)-1/0.58))
 hist(log(d2$Calories_Burned))
 
-fitBox <- lm(((Calories_Burned^0.30)-1/0.30) ~ . -Fats-Carbs-Weight..kg.-cholesterol_mg-BMI, data = d2)
+fitBox <- lm(((Calories_Burned^0.58)-1/0.58) ~ . -Fats-Carbs-Weight..kg.-cholesterol_mg-BMI, data = d2)
+fitBoxd3 <- lm(((Calories_Burned^0.58)-1/0.58) ~ . -Carbs-Proteins-Fats-BMI-BMI_calc-pct_maxHR-Weight..kg.-expected_burn-pct_HRR-lean_mass_kg-Calories-protein_per_kg, data = d3)
+summary(fitBoxd3)
 summary(fit)
 summary(fitBox)
 library(lmtest)
-resettest(fitBox, power = 2, type = "fitted",  data = d2)
+resettest(fitBoxd3, power = 2, type = "fitted",  data = d3)
 
 library(gam)
 gam1 <- gam(Calories_Burned ~ . -Fats-Carbs-Weight..kg.-cholesterol_mg-BMI-Session_Duration..hours.+s(Session_Duration..hours.)-lean_mass_kg+s(lean_mass_kg)-Fat_Percentage+s(Fat_Percentage)-Water_Intake..liters.+s(Water_Intake..liters.), data = d2)
+
+gam4 = gam(Calories_Burned~. -Carbs-Proteins-Fats-BMI-BMI_calc-pct_maxHR-Weight..kg.-expected_burn-pct_HRR-lean_mass_kg-Calories-protein_per_kg, data=d3)
+summary(gam4)
+plot(gam4)
+
+gam4s = gam(Calories_Burned~. -Carbs-Proteins-Fats-BMI-BMI_calc-pct_maxHR-Weight..kg.-expected_burn-pct_HRR-lean_mass_kg-Calories-protein_per_kg-Age+s(Age)-Height..m.+s(Height..m.)-Avg_BPM+s(Avg_BPM)-Session_Duration..hours.+s(Session_Duration..hours.)-Water_Intake..liters.+s(Water_Intake..liters.)-serving_size_g+s(serving_size_g), data=d3)
+plot(gam4s)
+
 summary(gam1)
 plot(gam1)
 
@@ -117,7 +143,10 @@ summary(fit)
 plot(fitBox_wls, which=1)
 plot(fitBox_wls)
 library(lmtest) 
-bptest(fitBox_wls
-) 
+bptest(fitBox_wls)
 qqnorm(fitBox_wls$residuals)
 qqline(fitBox_wls$residuals)
+
+##### reset test #####
+library(lmtest)
+resettest(fitBox_wls, power = 2, type = "fitted",  data = d2)
