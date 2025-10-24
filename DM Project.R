@@ -57,7 +57,11 @@ d3[] <- sapply(d3, function(x) {
 #vettore delle colonne
 
 fit3 <- lm(Calories_Burned ~ ., data = d3)
+<<<<<<< HEAD
 summary(fit3)
+=======
+summary(fit)
+>>>>>>> 403a0625d1cd9add0ad287b72731c0fa2f4f0d8f
 
 fit <- lm(Calories_Burned ~ ., data = d2)
 summary(fit)
