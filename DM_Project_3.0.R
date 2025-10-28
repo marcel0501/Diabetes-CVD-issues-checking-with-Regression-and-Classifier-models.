@@ -136,6 +136,7 @@ summary(fit_reduced)
 summary(fitBox)
 
 # diagnostic plots
+par(mfrow=c(2,2))
 plot(fitBox)
 qqnorm(fitBox$residuals)
 qqline(fitBox$residuals)
@@ -150,24 +151,23 @@ resettest(fitBox, power = 2, type = "fitted",  data = d3)
 
 ##### GAM model #####
 library(gam)
-gam1 <- gam((Calories_Burned^0.2) ~ . -Carbs -Proteins -Fats -cal_from_macros -pct_maxHR
+gam1 <- gam(Calories_Burned ~ . -Carbs -Proteins -Fats -cal_from_macros -pct_maxHR
             -Weight..kg. -pct_HRR -lean_mass_kg -Calories -BMI -Experience_Level -cal_balance, 
             data = d3)
 summary(gam1)
-# Residual Deviance: 492.4375
-# AIC: -17250.86
 
 
-gam2 <- gam((Calories_Burned^0.2) ~ . -Carbs -Proteins -Fats -cal_from_macros -pct_maxHR
+gam2 <- gam(Calories_Burned ~ . -Carbs -Proteins -Fats -cal_from_macros -pct_maxHR
             -Weight..kg. -pct_HRR -lean_mass_kg -Calories -BMI -Experience_Level -cal_balance
             -Age +s(Age) 
             -Avg_BPM +s(Avg_BPM) 
             -Session_Duration..hours. +s(Session_Duration..hours.)
-            -Workout_Frequency..days.week. +s(Workout_Frequency..days.week.),
+            -Water_Intake..liters. +s(Water_Intake..liters.)
+            -Workout_Frequency..days.week. +s(Workout_Frequency..days.week.)
+            -Reps +s(Reps),
             data = d3)
 summary(gam2)
-# Residual Deviance: 475.5642
-# AIC: -17926.17
+plot(gam2, resid=T, pch=16)
 
 
 gam3 <- gam((Calories_Burned^0.2) ~ . -Carbs -Proteins -Fats -cal_from_macros -pct_maxHR
@@ -176,19 +176,15 @@ gam3 <- gam((Calories_Burned^0.2) ~ . -Carbs -Proteins -Fats -cal_from_macros -p
             -Workout_Frequency..days.week. +s(Workout_Frequency..days.week.),
             data = d3)
 summary(gam3)
-# Residual Deviance: 475.7741
-# AIC: -17929.35
 
 
 # diagnostic plots
 par(mfrow=c(3,3))
 plot(gam3, resid=T, pch=16)
 par(mfrow=c(1,1))
-# Residual Deviance: 476.0915
-# AIC: -17920.01
 
 
-fit3 <- update(fitBox, . ~ . -Session_Duration..hours.+I(sqrt(Session_Duration..hours.))
+fit3 <- update(fitBox, . ~ . -Session_Duration..hours. +I(sqrt(Session_Duration..hours.))
                -Workout_Frequency..days.week. +I(-(Workout_Frequency..days.week.)^2))
 summary(fit3)
 # Multiple R-squared:  0.7848,	Adjusted R-squared:  0.7844
@@ -202,7 +198,7 @@ summary(fit4)
 
 # AIC and BIC comparison
 AIC(fit3, fit4)
-BIC(fit3, fit4)
+BIC(fit3, fit4) # fit4 is better !!!
 
 # diagnostic plots
 par(mfrow=c(2,2))
@@ -214,6 +210,19 @@ resettest(fit4)
 # VIF
 library(car)
 vif(fit4)
+
+gam4 <- gam((Calories_Burned^0.2) ~ . -Carbs -Proteins -Fats -cal_from_macros -pct_maxHR
+            -Weight..kg. -pct_HRR -lean_mass_kg -Calories -BMI -Experience_Level -cal_balance
+            -Gender -Max_BPM -meal_type -diet_type -cooking_method 
+            -Name.of.Exercise -Benefit -Difficulty.Level
+            -Session_Duration..hours. +I(sqrt(Session_Duration..hours.))
+            -Workout_Frequency..days.week. +I(-(Workout_Frequency..days.week.)^2)
+            -sugar_g +s(sugar_g) -sodium_mg +s(sodium_mg) -cholesterol_mg +s(cholesterol_mg)
+            -serving_size_g +s(serving_size_g) -prep_time_min +s(prep_time_min)
+            -cook_time_min +s(cook_time_min),,
+            data = d3)
+summary(gam4)
+plot(gam4)
 
 
 
