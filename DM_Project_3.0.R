@@ -46,7 +46,8 @@ round_numeric_df <- function(df, include = NULL) {
 # arrotondiamo le colonne selezionate
 d2 <- round_numeric_df(d2, include = c("Age", "Workout_Frequency..days.week.",
                                        "Experience_Level","Daily.meals.frequency",
-                                       "Physical.exercise","Sets","Reps"))
+                                       "Physical.exercise","Sets","Reps","Avg_BPM",
+                                       "Max_BPM","Resting_BPM"))
 head(d2)
 summary(d2)
 
@@ -154,12 +155,28 @@ gam1 <- gam((Calories_Burned^0.2) ~ . -Carbs -Proteins -Fats -cal_from_macros -p
             -Weight..kg. -pct_HRR -lean_mass_kg -Calories -BMI -Experience_Level -cal_balance, 
             data = d3)
 summary(gam1)
-plot(gam1)
 
+
+gam2 <- gam((Calories_Burned^0.2) ~ . -Carbs -Proteins -Fats -cal_from_macros -pct_maxHR
+            -Weight..kg. -pct_HRR -lean_mass_kg -Calories -BMI -Experience_Level -cal_balance
+            -Session_Duration..hours. +s(Session_Duration..hours.), 
+            data = d3)
+summary(gam2)
+
+
+# diagnostic plots
 par(mfrow=c(3,3))
-plot(gam1, resid=T, pch=16)
+plot(gam2, resid=T, pch=16)
 par(mfrow=c(1,1))
 
+
+
+fit3 <- update(fitBox, . ~ . -Session_Duration..hours.+I(sqrt(Session_Duration..hours.)))
+summary(fit3)
+
+# reset test
+resettest(fit3, power = 2, type = "fitted",  data = d3)
+anova(fitBox, fit3)
 
 
 ##### Weighted Least Squares #####
