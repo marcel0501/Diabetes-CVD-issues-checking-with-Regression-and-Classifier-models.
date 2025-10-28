@@ -22,7 +22,7 @@ col_names <- names(d1)
 col_names
 
 # rimuoviamo le colonne indesiderate
-d2 <- d1[,-c(44,46,52,53,54)]
+d2 <- d1[,-c(22,44,46,52,53,54)]
 # "BMI_calc" (44), "pct_carbs" (46), "expected_burn" (52), 
 # "Burns.Calories..per.30.min._bc" (53), "Burns_CAlories_Bin" (54)
 
@@ -188,12 +188,33 @@ par(mfrow=c(1,1))
 # AIC: -17920.01
 
 
-fit3 <- update(fitBox, . ~ . -Session_Duration..hours.+I(sqrt(Session_Duration..hours.)))
+fit3 <- update(fitBox, . ~ . -Session_Duration..hours.+I(sqrt(Session_Duration..hours.))
+               -Workout_Frequency..days.week. +I(-(Workout_Frequency..days.week.)^2))
 summary(fit3)
+# Multiple R-squared:  0.7848,	Adjusted R-squared:  0.7844
+
+
+fit4 <- update(fit3, . ~ . -Gender -Max_BPM -meal_type -diet_type -cooking_method 
+               -Name.of.Exercise -Benefit -Difficulty.Level)
+summary(fit4)
+# Multiple R-squared:  0.7846,	Adjusted R-squared:  0.7843
+
+
+# AIC and BIC comparison
+AIC(fit3, fit4)
+BIC(fit3, fit4)
+
+# diagnostic plots
+par(mfrow=c(2,2))
+plot(fit4)
 
 # reset test
-resettest(fit3, power = 2, type = "fitted",  data = d3)
-anova(fitBox, fit3)
+resettest(fit4)
+
+# VIF
+library(car)
+vif(fit4)
+
 
 
 ##### Weighted Least Squares #####
