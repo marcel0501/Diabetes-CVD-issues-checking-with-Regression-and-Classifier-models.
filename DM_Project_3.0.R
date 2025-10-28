@@ -1,3 +1,4 @@
+
 ##### Load Data #####
 d1 <- read.csv("https://raw.githubusercontent.com/marcel0501/Obesity-classifier-and-BMI-regression/refs/heads/main/Final_data.csv", 
                sep = ",")
@@ -9,12 +10,22 @@ sapply(d1, function(x)(sum(is.na(x)))) # No MISSING VALUES
 ##### Exploratory Analysis #####
 summary(d1)
 
+# correlation matrix
+d1_numeric <- d1[, sapply(d1, is.numeric)]
+cor_matrix <- cor(d1_numeric)
+cor_matrix
+# visualizziamo la matrice di correlazione
+library(corrplot)
+corrplot(cor_matrix, method = "circle", type = "upper", tl.cex = 0.7)
+
 # lista con i nomi delle colonne di d1
 col_names <- names(d1)
 col_names
 
 # rimuoviamo le colonne indesiderate
 d2 <- d1[,-c(44,46,52,53,54)]
+# "BMI_calc" (44), "pct_carbs" (46), "expected_burn" (52), 
+# "Burns.Calories..per.30.min._bc" (53), "Burns_CAlories_Bin" (54)
 
 # Notiamo che alcune variabili hanno valori float essendo stati creati artificialmente, 
 # arrotondiamoli all'int. più vicino
@@ -91,31 +102,37 @@ m=lm(y ~ x)
 imcdiag(m)
 
 
-
 # collinearity problems detected, 
 # we'll proceed by taking out the variables with VIF > 5
 fit2 = lm(Calories_Burned ~ . -Carbs -Proteins -Fats -cal_from_macros -pct_maxHR
           -Weight..kg. -pct_HRR -lean_mass_kg -Calories -BMI, data = d3)
 summary(fit2)
 
+##### ANOVA test #####
+fit_reduced <- update(fit2, . ~ . -Experience_Level -cal_balance)
+
+anova(fit2, fit_reduced)
+
+summary(fit_reduced) 
+# abbiamo tolto cal_balance e Experience_Level variabili non significative
+
 
 
 ##### Box-Cox Transformation #####
 library(MASS)
-boxcoxreg1 <- boxcox(fit2)
+boxcoxreg1 <- boxcox(fit_reduced)
 lambda1 <- boxcoxreg1$x[which(boxcoxreg1$y==max(boxcoxreg1$y))]
 lambda1
 
 # Lambda vicino allo 0, serve trasformare la variabile risposta
 hist(d3$Calories_Burned)
 hist(log(d3$Calories_Burned))
-hist(((d3$Calories_Burned^0.58)-1/0.58)) # migliore
+hist(d3$Calories_Burned^0.2) # migliore
 
-fitBox <- lm(((Calories_Burned^0.58)-1/0.58) ~ . -Carbs -Proteins -Fats 
-             -cal_from_macros -pct_maxHR -Weight..kg. -pct_HRR -lean_mass_kg 
-             -Calories -BMI, data = d3)
+fitBox <- update(fit_reduced, .^0.2 ~ .)
+
 # confronto
-summary(fit2)
+summary(fit_reduced)
 summary(fitBox)
 
 # diagnostic plots
@@ -133,13 +150,8 @@ resettest(fitBox, power = 2, type = "fitted",  data = d3)
 
 ##### GAM model #####
 library(gam)
-gam1 <- gam(Calories_Burned ~ . -Carbs -Proteins -Fats -cal_from_macros -pct_maxHR
-            -Weight..kg. -pct_HRR -lean_mass_kg -Calories -BMI
-            -Age +s(Age) -Height..m. +s(Height..m.) -Avg_BPM +s(Avg_BPM)
-            -Session_Duration..hours. +s(Session_Duration..hours.)
-            -Water_Intake..liters. +s(Water_Intake..liters.) 
-            -Workout_Frequency..days.week. +s(Workout_Frequency..days.week.)
-            -Reps +s(Reps) -cal_balance +s(cal_balance),
+gam1 <- gam((Calories_Burned^0.2) ~ . -Carbs -Proteins -Fats -cal_from_macros -pct_maxHR
+            -Weight..kg. -pct_HRR -lean_mass_kg -Calories -BMI -Experience_Level -cal_balance, 
             data = d3)
 summary(gam1)
 plot(gam1)
